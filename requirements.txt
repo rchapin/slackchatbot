@@ -1,0 +1,2 @@
+slackclient==2.8.1
+PyYAML==5.3.1
