@@ -10,7 +10,7 @@ something that can manage STDOUT and STDERR appropriately.
 '''
 logging.basicConfig(
     format='%(asctime)s,%(levelname)s,%(module)s,%(message)s',
-    level=logging.INFO,
+    level=logging.DEBUG,
     stream=sys.stdout)
 
 logger = logging.getLogger(__name__)

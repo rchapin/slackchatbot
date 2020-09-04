@@ -17,7 +17,7 @@
 
     1. Add the following additional OAuth Scopes
 
-channels:history,groups:history,mpim:history,im:history
+channels:history,groups:history,mpim:history,im:history,chat:write:bot
 
     1. In the left-hand nav, click on ```OAuth & Permissions``` and then click on ```Install App to Workspace``` and then the ```Allow``` button on the next screen.
 
