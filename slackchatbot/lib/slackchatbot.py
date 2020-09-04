@@ -1,21 +1,22 @@
 import yaml
 from slack import RTMClient
 from slack.web.client import WebClient
+from test.test_importlib.namespace_pkgs.project1 import parent
 
 class SlackChatBot(object):
 
-    configs = None
-    logger = None
 
     def __init__(self, args, logger):
         self.args = args
-        SlackChatBot.logger = logger
-        SlackChatBot.configs = SlackChatBot.load_configs(args.configfile)
-        self.rtm_client = SlackChatBot.get_rtm_slack_client(
-            SlackChatBot.configs['bot_user_oauth_token'])
+        self.logger = logger
+        self.configs = SlackChatBot.load_configs(args.configfile)
+        self.rtm_client = SlackChatBot.get_rtm_slack_client(self.configs['bot_user_oauth_token'])
+        # timeout=30?
+        web_client = WebClient(token=self.configs['bot_user_oauth_token'])
+        self.bot_id = web_client.api_call("auth.test")['user_id']
 
     def run(self):
-        self.rtm_client.on(event='message', callback=SlackChatBot.process_message)
+        self.rtm_client.on(event='message', callback=self.process_message)
         self.rtm_client.start()
 
     @staticmethod
@@ -27,8 +28,7 @@ class SlackChatBot(object):
     def get_rtm_slack_client(bot_token):
         return RTMClient(token=bot_token)
 
-    @staticmethod
-    def get_message_to_parse(data):
+    def get_message_to_parse(self, data):
         '''
         Parses the payload from Slack and return the message to which we
         will be responding.
@@ -42,7 +42,7 @@ class SlackChatBot(object):
             for the threaded replies
             '''
             parent_ts = message.get('ts')
-            web_client = WebClient(token=SlackChatBot.configs['oauth_access_token'])
+            web_client = WebClient(token=self.configs['oauth_access_token'])
             response = web_client.conversations_replies(
                 channel=channel,
                 ts=parent_ts)
@@ -66,8 +66,7 @@ class SlackChatBot(object):
 
         return retval
 
-    @staticmethod
-    def generate_message_response(payload, message):
+    def generate_message_response(self, message):
         retval = None
         if 'Hello' in message['text']:
             retval = f'Hello to you to :)'
@@ -76,13 +75,18 @@ class SlackChatBot(object):
     def get_message_from_thread(self):
         pass
 
-    @staticmethod
-    def process_message(**payload):
+    def process_message(self, **payload):
         data = payload['data']
-        SlackChatBot.logger.debug(f'data={data}')
+        user = data.get('user', None)
+
+        if user == None or user == self.bot_id:
+            self.logger.debug('Ignoring messages from myself')
+            return
+
+        self.logger.debug(f'data={data}')
         subtype = data.get('subtype', None)
-        if subtype is not None and subtype == 'message_replied':
-            SlackChatBot.logger.debug('returning, this is a message_replied')
+        if subtype is not None and subtype in ['bot_message']:
+            self.logger.debug(f'ignoring message subtype={subtype}')
             return
         channel = data.get('channel', None)
         '''
@@ -91,47 +95,50 @@ class SlackChatBot(object):
         thread_ts = data.get('ts')
         bot_id = data.get('bot_id', '')
         if bot_id != '':
-            SlackChatBot.logger.debug('returning, this is a bot response')
+            self.logger.debug('returning, this is a bot response')
             return
 
         '''
         Get the message to which we will be responding and then determine
         our response
         '''
-        message = SlackChatBot.get_message_to_parse(data)
+        message = self.get_message_to_parse(data)
+        # thread ts if part of a thread is the ts of the first msg
         parent_ts = message.get('parent_ts', None)
-#         thread_ts = parent_ts if parent_ts is not None else thread_ts
-        message_response = SlackChatBot.generate_message_response(payload, message)
+        message_thread_ts = message.get('thread_ts', None)
+        target_ts = self.get_target_timestamp(parent_ts, message_thread_ts, thread_ts)
+        message_response = self.generate_message_response(message)
 
-        web_client = WebClient(SlackChatBot.configs['bot_user_oauth_token'])
-        response = web_client.chat_postMessage(
-            channel=channel,
-            text=message_response,
-            thread_ts=thread_ts)
-#         if parent_ts is None:
-#             response = web_client.reactions_add(
-#                 channel=channel,
-#                 timestamp=thread_ts,
-#                 name='star')
-#             response = web_client.reactions_add(
-#                 channel=channel,
-#                 timestamp=thread_ts,
-#                 name='heavy_check_mark')
-#             as_user=False,
-#             username='Chat Bot':heavy_check_mark:)
+        if message_response is not None:
+#             target_ts = parent_ts if parent_ts is not None else thread_ts
+            self.logger.debug(f"responding to user= with={message_response}")
+            web_client = WebClient(self.configs['bot_user_oauth_token'])
+            response = web_client.chat_postMessage(
+                channel=channel,
+                text=message_response,
+                thread_ts=target_ts)
+            self.logger.debug(f'response from posting reply={response}')
 
-        SlackChatBot.logger.info(f'process_message end {thread_ts}, parent_ts={parent_ts}')
+            '''
+            For the time-being we will assume that for any response we will star
+            and check the parent thread.
+            '''
+            response = web_client.reactions_add(
+                channel=channel,
+                timestamp=target_ts,
+                name='star')
+            response = web_client.reactions_add(
+                channel=channel,
+                timestamp=target_ts,
+                name='heavy_check_mark')
+        else:
+            self.logger.debug(f"user= sent a message we ignored")
 
-        # Extracting message send by the user on the slack
-#         text = data.get("text", "")
-#         text = text.split(">")[-1].strip()
-#
-#         response = ""
-#         if "help" in text.lower():
-#             user = data.get('user', "")
-#             response = f"Hi <@{user}>! :)"
-#
-#             web_client.chat_postMessage(
-#                 channel=response['channel'],
-#                 text=response['text'],
-#                 thread_ts=reso)
+        self.logger.info(f'Message processed for user={user}, target_ts={target_ts}')
+
+    def get_target_timestamp(self, parent_ts, message_thread_ts, thread_ts):
+        if parent_ts is not None:
+            return parent_ts
+        if message_thread_ts is not None:
+            return message_thread_ts
+        return thread_ts
