@@ -1,3 +1,4 @@
+import asyncio
 import sys
 import logging
 import argparse
@@ -40,7 +41,8 @@ def main():
     logger.info(f'slackreplybot run with args={args}')
 
     slackchatbot = SlackChatBot(args, logger)
-    slackchatbot.run()
+    asyncio.run(slackchatbot.run())
+    logger.info('SlackReplyBot complete')
 
 ###############################################################################
 # MAIN

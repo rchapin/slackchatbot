@@ -14,9 +14,9 @@ CLASSIFIERS = [
 ]
 
 setup(
-    name='slackreplybot',
+    name='slackchatbot',
     version='1.0.0.0',
-    description='A Slack Reply Bot',
+    description='A Slack Chat Bot',
     classifiers=CLASSIFIERS,
     author='Ryan Chapin',
     author_email='rchapin@nbinteractive.com',
@@ -28,7 +28,7 @@ setup(
     install_requires=open('requirements.txt').read().splitlines(),
     entry_points={
          'console_scripts': [
-             'slackreplybot=slackreplybot.main:main',
+             'slackchatbot=slackchatbot.main:main',
              ],
     },
 )

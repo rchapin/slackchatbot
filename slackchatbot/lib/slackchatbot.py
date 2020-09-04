@@ -1,8 +1,9 @@
-import time
+from datetime import datetime
+import asyncio
+import signal
 import yaml
 from slack import RTMClient
 from slack.web.client import WebClient
-from test.test_coroutines import run_async
 
 class SlackChatBot(object):
 
@@ -10,14 +11,9 @@ class SlackChatBot(object):
         self.args = args
         self.logger = logger
         self.configs = SlackChatBot.load_configs(args.configfile)
-        # timeout=30?
-        web_client = WebClient(token=self.configs['bot_user_oauth_token'])
-        self.bot_id = web_client.api_call("auth.test")['user_id']
-
-    def run(self):
-        self.rtm_client = RTMClient(token=self.configs['bot_user_oauth_token'])
-        self.rtm_client.on(event='message', callback=self.process_message)
-        self.rtm_client.start()
+        # TODO: add a timeout to the WebClient timeout=30?
+        self.web_client = WebClient(token=self.configs['bot_user_oauth_token'])
+        self.bot_id = self.web_client.api_call("auth.test")['user_id']
 
     @staticmethod
     def load_configs(config_file_path):
@@ -71,7 +67,7 @@ class SlackChatBot(object):
     def get_message_from_thread(self):
         pass
 
-    def process_message(self, **payload):
+    async def process_message(self, **payload):
         data = payload['data']
         user = data.get('user', None)
         if user == None or user == self.bot_id:
@@ -126,3 +122,45 @@ class SlackChatBot(object):
         if message_thread_ts is not None:
             return message_thread_ts
         return thread_ts
+
+    async def run_loop(self):
+        while self.running:
+            print(f'Checking running={self.running}, {datetime.now()}')
+            await asyncio.sleep(3)
+            if not self.running:
+                print('Stopping RTMClient....')
+                self.rtm_client.stop()
+
+    async def api_test_loop(self):
+        while self.running:
+            print(f'api test {datetime.now()}')
+            response = self.web_client.api_call('api.test')
+            # Do something if this fails
+            print(response)
+            await asyncio.sleep(10)
+
+    async def run(self):
+        self.loop = asyncio.get_event_loop()
+        self.web_client = WebClient(token=self.configs['bot_user_oauth_token'])
+        self.rtm_client = RTMClient(token=self.configs['bot_user_oauth_token'], run_async=True, loop=self.loop)
+        self.rtm_client.on(event='message', callback=self.process_message)
+        self.running = True
+
+        await asyncio.gather(
+            self.register_signal_handlers(),
+            self.rtm_client.start(),
+            self.run_loop(),
+            self.api_test_loop()
+        )
+        print('Run complete...')
+
+    async def register_signal_handlers(self):
+        print('Registering signal hanlders')
+        signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
+        for s in signals:
+            signal.signal(s, self.shutdown)
+        return
+
+    def shutdown(self, *unused):
+        print(f'Shutdown called')
+        self.running = False
