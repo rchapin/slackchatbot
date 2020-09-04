@@ -78,37 +78,25 @@ class SlackChatBot(object):
     def process_message(self, **payload):
         data = payload['data']
         user = data.get('user', None)
-
         if user == None or user == self.bot_id:
             self.logger.debug('Ignoring messages from myself')
             return
 
         self.logger.debug(f'data={data}')
-        subtype = data.get('subtype', None)
-        if subtype is not None and subtype in ['bot_message']:
-            self.logger.debug(f'ignoring message subtype={subtype}')
-            return
         channel = data.get('channel', None)
-        '''
-        Following the https://api.slack.com/methods/chat.postMessage
-        '''
-        thread_ts = data.get('ts')
-        bot_id = data.get('bot_id', '')
-        if bot_id != '':
-            self.logger.debug('returning, this is a bot response')
-            return
 
         '''
         Get the message to which we will be responding and then determine
         our response
         '''
         message = self.get_message_to_parse(data)
-        # thread ts if part of a thread is the ts of the first msg
+
+        thread_ts = data.get('ts')
         parent_ts = message.get('parent_ts', None)
         message_thread_ts = message.get('thread_ts', None)
         target_ts = self.get_target_timestamp(parent_ts, message_thread_ts, thread_ts)
-        message_response = self.generate_message_response(message)
 
+        message_response = self.generate_message_response(message)
         if message_response is not None:
 #             target_ts = parent_ts if parent_ts is not None else thread_ts
             self.logger.debug(f"responding to user= with={message_response}")
