@@ -33,7 +33,7 @@ def amusebot(**payload):
         web_client.chat_postMessage(channel=channel_id, text=response)
 
 try:
-    rtm_client = RTMClient(token="<token>")
+    rtm_client = RTMClient(token="")
     print("Bot is up and running!")
     rtm_client.start()
 except Exception as err:

@@ -1,5 +1,6 @@
 import yaml
 from slack import RTMClient
+from slack.web.client import WebClient
 
 class SlackChatBot(object):
 
@@ -11,15 +12,8 @@ class SlackChatBot(object):
             self.configs['bot_user_oauth_token'])
 
     def run(self):
-        RTMClient.on(event="message", callback=self.process_message)
+        self.rtm_client.on(event='message', callback=self.process_message)
         self.rtm_client.start()
-#
-#     def say_hello(self, **payload):
-#         data = payload["data"]
-#         if data:
-#             if "text" in data:
-#                 text = data["text"]
-#                 self.textChanged.emit(text)
 
     @staticmethod
     def load_configs(config_file_path):
@@ -30,81 +24,104 @@ class SlackChatBot(object):
     def get_rtm_slack_client(bot_token):
         return RTMClient(token=bot_token)
 
-    def get_message_to_parse(self, payload):
+    def get_message_to_parse(self, data):
         '''
         Parses the payload from Slack and return the message to which we
         will be responding.
         '''
-        web_client = payload['web_client']
-        data = payload.get('data', None)
-        ts = float(data.get('ts', 0))
         channel = data.get('channel', None)
-        if data is not None:
-            message = data.get('message', None)
-            if message:
+        retval = None
+        message = data.get('message', None)
+        if message:
+            '''
+            If there is a message key this is a parent message. We need to query
+            for the threaded replies
+            '''
+            parent_ts = message.get('ts')
+            web_client = WebClient(token=self.configs['oauth_access_token'])
+            response = web_client.conversations_replies(
+                channel=channel,
+                ts=parent_ts)
+            # FIXME: Add try/except
+            response = response.validate()
+            messages = response.get('messages')
+            if messages:
                 '''
-                If there is a message key this is a parent message. We need to query
-                for the threaded replies
+                We are going to assume that if we were up and running up
+                until now that we will have already read all but the most
+                recent messages, so we will just attempt to parse the
+                message
                 '''
-                thread_ts = message.get('thread_ts')
-                response = web_client.conversations_replies(
-                    channel=channel,
-                    ts=thread_ts,
-                    token=self.configs['oauth_access_token'])
-                # FIXME: Add try/except
-                response = response.validate()
-                messages = response.get('messages')
-                if messages:
-                    '''
-                    We are going to assume that if we were up and running up
-                    until now that we will have already read all but the most
-                    recent messages, so we will just attempt to parse the
-                    message
-                    '''
-                    if len(messages) > 0:
-                        message = messages[-1]
-                        print('foo')
-            else:
-                # This is an unthreaded message as of yet
-                print('foo')
+                if len(messages) > 0:
+                    retval = messages[-1]
+                    # Document
+                    retval['parent_ts'] = parent_ts
+        else:
+            # This is an unthreaded/parent message
+            retval = data
+
+        return retval
+
+    def generate_message_response(self, payload, message):
+        retval = ''
+        if 'Hello' in message['text']:
+            retval = f'Hello to you to :)'
+        else:
+            retval = 'This is a canned response'
+        return retval
 
     def get_message_from_thread(self):
         pass
 
     def process_message(self, **payload):
         data = payload['data']
-        ts = float(data.get('ts', 0))
         channel = data.get('channel', None)
+        '''
+        Following the https://api.slack.com/methods/chat.postMessage
+        '''
+        thread_ts = data.get('ts')
         web_client = payload['web_client']
         bot_id = data.get('bot_id', '')
+        if bot_id != '':
+            return
 
-        # Get the message to which we will be responsing
-        message = self.get_message_to_parse(payload)
+        '''
+        Get the message to which we will be responding and then determine
+        our response
+        '''
+        message = self.get_message_to_parse(data)
+        parent_ts = message.get('parent_ts', None)
+#         thread_ts = parent_ts if parent_ts is not None else thread_ts
+        message_response = self.generate_message_response(payload, message)
 
-        # If a message is not send by the bot
-        if bot_id == "":
-            channel_id = data["channel"]
-            # Extracting message send by the user on the slack
-            text = data.get("text", "")
-            text = text.split(">")[-1].strip()
+        response = web_client.chat_postMessage(
+            channel=channel,
+            text=message_response,
+            thread_ts=thread_ts)
+        if parent_ts is None:
+            response = web_client.reactions_add(
+                channel=channel,
+                timestamp=thread_ts,
+                name='star')
+            response = web_client.reactions_add(
+                channel=channel,
+                timestamp=thread_ts,
+                name='heavy_check_mark')
+#             as_user=False,
+#             username='Chat Bot':heavy_check_mark:)
 
-            response = ""
-            if "help" in text.lower():
-                user = data.get("user", "")
-                response = f"Hi <@{user}>! :)"
+        print(f'process_message end {thread_ts}, parent_ts={parent_ts}')
 
-                web_client.chat_postMessage(
-                    channel=channel_id,
-                    text=response)
-
-#         if 'Hello' in data['text']:
-#             channel_id = data['channel']
-#             thread_ts = data['ts']
-#             # This is not username but user ID (the format is ei``ther U*** or W***)
-#             user = data['user']
+        # Extracting message send by the user on the slack
+#         text = data.get("text", "")
+#         text = text.split(">")[-1].strip()
+#
+#         response = ""
+#         if "help" in text.lower():
+#             user = data.get('user', "")
+#             response = f"Hi <@{user}>! :)"
 #
 #             web_client.chat_postMessage(
-#                 channel=channel_id,
-#                 text=f"Hi <@{user}>!",
-#                 thread_ts=thread_ts
-#             )
+#                 channel=response['channel'],
+#                 text=response['text'],
+#                 thread_ts=reso)
