@@ -13,6 +13,7 @@ logging.basicConfig(
     format=LOGGING_FORMAT,
     level=logging.INFO,
     stream=sys.stdout)
+
 logger = logging.getLogger(__name__)
 
 def parse_args():
@@ -34,18 +35,12 @@ def parse_args():
 def main():
     args = parse_args()
 
-#     formatter = logging.Formatter(LOGGING_FORMAT)
-#     console_handler = logging.StreamHandler(sys.stdout)
-#     console_handler.setFormatter(formatter)
-#     logger.addHandler(console_handler)
-#     logger.setLevel(args.loglevel.upper())
-
+    # Reconfigure the basic logging to pick up our defined log level
+    logging.getLogger().setLevel(args.loglevel.upper())
     logger.info(f'slackreplybot run with args={args}')
-    logger.debug('debugging')
 
     slackchatbot = SlackChatBot(args, logger)
     slackchatbot.run()
-
 
 ###############################################################################
 # MAIN

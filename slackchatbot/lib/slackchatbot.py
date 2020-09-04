@@ -1,21 +1,21 @@
+import time
 import yaml
 from slack import RTMClient
 from slack.web.client import WebClient
-from test.test_importlib.namespace_pkgs.project1 import parent
+from test.test_coroutines import run_async
 
 class SlackChatBot(object):
-
 
     def __init__(self, args, logger):
         self.args = args
         self.logger = logger
         self.configs = SlackChatBot.load_configs(args.configfile)
-        self.rtm_client = SlackChatBot.get_rtm_slack_client(self.configs['bot_user_oauth_token'])
         # timeout=30?
         web_client = WebClient(token=self.configs['bot_user_oauth_token'])
         self.bot_id = web_client.api_call("auth.test")['user_id']
 
     def run(self):
+        self.rtm_client = RTMClient(token=self.configs['bot_user_oauth_token'])
         self.rtm_client.on(event='message', callback=self.process_message)
         self.rtm_client.start()
 
@@ -23,10 +23,6 @@ class SlackChatBot(object):
     def load_configs(config_file_path):
         with open(config_file_path, 'r') as fh:
             return yaml.load(fh, Loader=yaml.FullLoader)
-
-    @staticmethod
-    def get_rtm_slack_client(bot_token):
-        return RTMClient(token=bot_token)
 
     def get_message_to_parse(self, data):
         '''
