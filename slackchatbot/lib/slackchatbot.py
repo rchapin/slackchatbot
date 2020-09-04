@@ -68,11 +68,9 @@ class SlackChatBot(object):
 
     @staticmethod
     def generate_message_response(payload, message):
-        retval = ''
+        retval = None
         if 'Hello' in message['text']:
             retval = f'Hello to you to :)'
-        else:
-            retval = 'This is a canned response'
         return retval
 
     def get_message_from_thread(self):
