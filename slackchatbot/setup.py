@@ -6,7 +6,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 try:
     README = open(os.path.join(here, 'README.md')).read()
 except:
-    README = 'ESXi Management Utility'
+    README = 'Slack Chat Bot'
 
 CLASSIFIERS = [
     'Development Status :: 5 - Production/Stable',

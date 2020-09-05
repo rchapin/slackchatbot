@@ -2,16 +2,7 @@
 # https://hub.docker.com/_/python
 FROM python:3.8.5-slim
 
-# Copy local code to the container image.
-ENV APP_HOME /app
-WORKDIR $APP_HOME
-COPY ./slackchatbot ./
+RUN pip install --trusted-host nexus.dmz-svcs.mootley.local slackchatbot==1.0.0.0 --index-url https://nexus.dmz-svcs.mootley.local:8443/repository/pypi-dev/simple -U setuptools pip
+RUN pip install --trusted-host nexus.dmz-svcs.mootley.local slackchatbot==1.0.0.0 --index-url https://nexus.dmz-svcs.mootley.local:8443/repository/pypi-dev/simple
 
-# Install dependencies.
-RUN pip install -r requirements.txt && pip install .
-
-# Run the web service on container startup. Here we use the gunicorn
-# webserver, with one worker process and 8 threads.
-# For environments with multiple CPU cores, increase the number of workers
-# to be equal to the cores available.
-ENTRYPOINT ["slackchatbot", "--configfile", "/etc/slackreplybot.yaml"]
+ENTRYPOINT ["slackchatbot", "--configfile", "/etc/slackchatbot.yaml"]
