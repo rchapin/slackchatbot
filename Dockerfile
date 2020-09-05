@@ -2,10 +2,20 @@
 # https://hub.docker.com/_/python
 FROM python:3.8
 
-# RUN apt update && apt-get install -y python3-pip
+WORKDIR /app
 
-RUN pip install --trusted-host nexus.dmz-svcs.mootley.local slackchatbot==1.0.0.0 --index-url https://nexus.dmz-svcs.mootley.local:8443/repository/pypi-dev/simple -U setuptools pip
-RUN pip install --trusted-host nexus.dmz-svcs.mootley.local slackchatbot==1.0.0.0 --index-url https://nexus.dmz-svcs.mootley.local:8443/repository/pypi-dev/simple
+RUN mkdir /etc/slackchatbot
+VOLUME ["/etc/slackchatbot"]
 
-ENTRYPOINT ["slackchatbot", "--configfile", "/etc/slackchatbot.yaml"]
-# ENTRYPOINT /bin/bash
+RUN groupadd -g 10001 slackchatbot \
+   && adduser --uid 10001 --gid 10001 slackchatbot
+
+RUN python -m venv venv \
+    && venv/bin/pip install --trusted-host nexus.dmz-svcs.mootley.local \
+       --index-url https://nexus.dmz-svcs.mootley.local:8443/repository/pypi-dev/simple \
+       -U setuptools pip \
+    && venv/bin/pip install --trusted-host nexus.dmz-svcs.mootley.local \
+       --index-url https://nexus.dmz-svcs.mootley.local:8443/repository/pypi-dev/simple \
+       slackchatbot==1.0.0.1 
+
+CMD su - slackchatbot -c "source /app/venv/bin/activate && slackchatbot --configfile /etc/slackchatbot/slackchatbot.yaml"

@@ -1,0 +1,22 @@
+[Unit]
+Description=Slack Chat Bot Container
+After=docker.service
+Requires=docker.service
+
+[Service]
+User=slackchatbot
+Group=slackchatbot
+TimeoutStartSec=0
+Restart=always
+ExecStartPre=-/usr/bin/docker stop slackchatbot
+ExecStartPre=-/usr/bin/docker rm slackchatbot
+ExecStart=/usr/bin/docker run --rm --name slackchatbot -v slackchatbot-etc:/etc/slackchatbot nexus.dmz-svcs.mootley.local:8444/slackchatbot:1.0.0.0
+ExecStop=/usr/bin/docker stop slackchatbot
+Restart=always
+RestartSec=20s
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=slackchatbot
+
+[Install]
+WantedBy=multi-user.target

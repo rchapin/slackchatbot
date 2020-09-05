@@ -38,6 +38,11 @@ def main():
 
     # Reconfigure the basic logging to pick up our defined log level
     logging.getLogger().setLevel(args.loglevel.upper())
+    ch = logging.StreamHandler()
+    ch.setLevel(args.loglevel.upper())
+    formatter = logging.Formatter(LOGGING_FORMAT)
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
     logger.info(f'slackreplybot run with args={args}')
 
     slackchatbot = SlackChatBot(args, logger)

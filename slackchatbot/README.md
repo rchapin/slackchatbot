@@ -28,14 +28,16 @@ channels:history,groups:history,mpim:history,im:history,chat:write:bot
 1. Test the credentials.
 
     1. Create the following ```test.json``` file
-```
-{
-  "channel":"#my-channel",
-  "text":"Hello, World!"
-}
-```
+
+    ```
+    {
+      "channel":"#my-channel",
+      "text":"Hello, World!"
+    }
+    ```
 
     2. Export the following env var and run the following command
+
 ```
 export OAUTH_TOKEN=<xob-etc>
 
@@ -45,3 +47,62 @@ curl -X POST \
 -d @test.json \
 https://slack.com/api/chat.postMessage
 ```
+
+## Deployment
+
+1. Ensure that you have the docker service installed on the host.
+
+1. Test docker and configure the firewall.
+
+    ```
+    docker run hello-world
+    ```
+
+1.  Add a ```slackchatbot``` user to the host so that we can run the docker container as a non-root user.
+
+    1. Added slackbot group and on the docker host.  We specify the GID and UID because that is what the UID is in the docker image that we will be using.
+
+    ```
+    groupadd -g 10001 -r slackchatbot && useradd -r -g slackchatbot -u 10001 slackchatbot && usermod -a -G docker slackchatbot
+    ```
+
+1.  Create named volumes for the slackchatbot container and set the permissions
+
+    1. Named volume for config files
+
+    ```
+    docker volume create --name slackchatbot-etc
+    chmod 755 /var/lib/docker
+    chmod 755 /var/lib/docker/volumes
+    ```
+
+1.  Copy the config file to the directory for the slackchatbot-etc dir and chown for slackchatbot
+
+1.  Create the log dir and set the permissions.
+
+    ```
+    mkdir -p /var/log/slackchatbot
+    chown -R slackchatbot: /var/log/slackchatbot
+    ```
+
+1. Install the syslog configs and systemd unit file
+
+    1. Copy the etc/systemd/system/slackchatbot.service file to /etc/systemd/system
+
+    ```
+    restorecon -v /etc/systemd/system/slackchatbot.service
+    systemctl daemon-reload
+    ```
+
+    1. Copy the rsyslog.d config file from ```etc/rsyslog.d/slackchatbot.conf``` to ```/etc/rsyslog.d``` so that all of the logs from the container will go to a dedicated log file.
+
+    ```
+    restorecon -v /etc/rsyslog.d/slackchatbot.conf
+    systemctl restart rsyslog
+    ```
+
+1. Start up and configure slackchatbot:
+
+    ```
+    systemctl start slackchatbot
+    ```
