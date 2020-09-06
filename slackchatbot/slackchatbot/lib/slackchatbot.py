@@ -4,6 +4,7 @@ import signal
 import yaml
 from slack import RTMClient
 from slack.web.client import WebClient
+from slackchatbot.lib.nlpprocessor import NlpProcessor
 
 class SlackChatBot(object):
 
@@ -14,6 +15,7 @@ class SlackChatBot(object):
         # TODO: add a timeout to the WebClient timeout=30?
         self.web_client = WebClient(token=self.configs['bot_user_oauth_token'])
         self.bot_id = self.web_client.api_call("auth.test")['user_id']
+        self.nlp_processor = NlpProcessor(self.logger, self.configs)
 
     @staticmethod
     def load_configs(config_file_path):
@@ -58,11 +60,8 @@ class SlackChatBot(object):
 
         return retval
 
-    def generate_message_response(self, message):
-        retval = None
-        if 'Hello' in message['text']:
-            retval = f'Hello to you to :)'
-        return retval
+    def generate_message_response(self, message, answer):
+        return '\n'.join([answer, self.configs['answer_feedback']])
 
     def get_message_from_thread(self):
         pass
@@ -82,15 +81,21 @@ class SlackChatBot(object):
         our response
         '''
         message = self.get_message_to_parse(data)
+        answer = self.nlp_processor.get_prediction(message.get('text', None))
+        if answer is None:
+            '''
+            We determined that this was a message for which we did not have
+            an answer, and we do nothing.
+            '''
+            return
+        message_response = self.generate_message_response(message, answer)
 
         thread_ts = data.get('ts')
         parent_ts = message.get('parent_ts', None)
         message_thread_ts = message.get('thread_ts', None)
         target_ts = self.get_target_timestamp(parent_ts, message_thread_ts, thread_ts)
 
-        message_response = self.generate_message_response(message)
         if message_response is not None:
-#             target_ts = parent_ts if parent_ts is not None else thread_ts
             self.logger.debug(f"responding to user= with={message_response}")
             web_client = WebClient(self.configs['bot_user_oauth_token'])
             response = web_client.chat_postMessage(
