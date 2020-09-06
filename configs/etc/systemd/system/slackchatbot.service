@@ -6,11 +6,12 @@ Requires=docker.service
 [Service]
 User=slackchatbot
 Group=slackchatbot
+EnvironmentFile=/etc/slackchatbot/slackchatbot.env
 TimeoutStartSec=0
 Restart=always
 ExecStartPre=-/usr/bin/docker stop slackchatbot
 ExecStartPre=-/usr/bin/docker rm slackchatbot
-ExecStart=/usr/bin/docker run --rm --name slackchatbot -v slackchatbot-etc:/etc/slackchatbot nexus.dmz-svcs.mootley.local:8444/slackchatbot:1.0.0.1
+ExecStart=/usr/bin/docker run --rm --name slackchatbot -v slackchatbot-etc:/etc/slackchatbot ${DOCKER_REPO_DOMAIN}:${DOCKER_REPO_PORT}/slackchatbot:${VERSION}
 ExecStop=/usr/bin/docker stop slackchatbot
 Restart=always
 RestartSec=20s

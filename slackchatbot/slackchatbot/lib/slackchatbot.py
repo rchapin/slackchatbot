@@ -130,18 +130,18 @@ class SlackChatBot(object):
 
     async def run_loop(self):
         while self.running:
-            print(f'Checking running={self.running}, {datetime.now()}')
+            self.logger.info(f'Checking running={self.running}, {datetime.now()}')
             await asyncio.sleep(3)
             if not self.running:
-                print('Stopping RTMClient....')
+                self.logger.info('Stopping RTMClient....')
                 self.rtm_client.stop()
 
     async def api_test_loop(self):
         while self.running:
-            print(f'api test {datetime.now()}')
+            self.logger.info(f'api test {datetime.now()}')
             response = self.web_client.api_call('api.test')
             # Do something if this fails
-            print(response)
+            self.logger.info(response)
             await asyncio.sleep(10)
 
     async def run(self):
@@ -157,15 +157,15 @@ class SlackChatBot(object):
             self.run_loop(),
             self.api_test_loop()
         )
-        print('Run complete...')
+        self.logger.info('Run complete...')
 
     async def register_signal_handlers(self):
-        print('Registering signal hanlders')
+        self.logger.info('Registering signal hanlders')
         signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
         for s in signals:
             signal.signal(s, self.shutdown)
         return
 
     def shutdown(self, *unused):
-        print(f'Shutdown called')
+        self.logger.info(f'Shutdown called')
         self.running = False

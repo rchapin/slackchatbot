@@ -1,0 +1,7 @@
+bot_user_oauth_token: $bot_user_oauth_token
+oauth_access_token: $oauth_access_token
+
+training_set_dir: $training_set_dir
+answer_probability_threshold: $threshold
+answer_feedback: 'If I did not answer your question please at mentioned me and include a message with the word "feedback" and then resend me the exact question to which I incorrectly responded.  Thanks!'
+

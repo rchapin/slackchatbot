@@ -1,0 +1,7 @@
+name: call-counter
+questions:
+  - Why does the counter always show 0
+  - Is the call counter recording my calls
+  - The call counter does not show that I have made any calls
+
+answer: "The counter is broken and it's a known issue"
