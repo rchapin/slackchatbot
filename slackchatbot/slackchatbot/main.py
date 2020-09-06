@@ -14,6 +14,7 @@ logging.basicConfig(
     format=LOGGING_FORMAT,
     level=logging.INFO,
     stream=sys.stdout)
+STATS_FORMAT = '%(module)s %(message)s'
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,12 @@ def parse_args():
         type=str,
         required=True,
         help='Fully qualified path to the config yaml file')
+
+    parser.add_argument(
+        '--dryrun',
+        type=str,
+        required=True,
+        help='Will just log questions and answers and not respond')
 
     parser.add_argument(
         '--loglevel',
@@ -38,14 +45,19 @@ def main():
 
     # Reconfigure the basic logging to pick up our defined log level
     logging.getLogger().setLevel(args.loglevel.upper())
-#     ch = logging.StreamHandler()
-#     ch.setLevel(args.loglevel.upper())
-#     formatter = logging.Formatter(LOGGING_FORMAT)
-#     ch.setFormatter(formatter)
-#     logger.addHandler(ch)
     logger.info(f'slackreplybot run with args={args}')
 
-    slackchatbot = SlackChatBot(args, logger)
+    '''
+    Create a stats logger to which we will only publish stats. We will
+    ultimately move this to use OpenTelemetry.
+    '''
+    stats_logger = logging.getLogger('slackchatbot_stats')
+    loggers = dict(
+        logger=logger,
+        stats_logger=stats_logger,
+        )
+
+    slackchatbot = SlackChatBot(loggers, args)
     asyncio.run(slackchatbot.run())
     logger.info('SlackReplyBot complete')
 

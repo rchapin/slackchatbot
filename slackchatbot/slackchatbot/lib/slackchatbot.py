@@ -8,14 +8,17 @@ from slackchatbot.lib.nlpprocessor import NlpProcessor
 
 class SlackChatBot(object):
 
-    def __init__(self, args, logger):
+    def __init__(self, loggers, args):
         self.args = args
-        self.logger = logger
+        self.loggers = loggers
+        self.logger = loggers['logger']
+        self.stats_logger = loggers['stats_logger']
         self.configs = SlackChatBot.load_configs(args.configfile)
+
         # TODO: add a timeout to the WebClient timeout=30?
         self.web_client = WebClient(token=self.configs['bot_user_oauth_token'])
         self.bot_id = self.web_client.api_call("auth.test")['user_id']
-        self.nlp_processor = NlpProcessor(self.logger, self.configs)
+        self.nlp_processor = NlpProcessor(self.loggers, self.configs)
 
     @staticmethod
     def load_configs(config_file_path):
@@ -63,9 +66,6 @@ class SlackChatBot(object):
     def generate_message_response(self, message, answer):
         return '\n'.join([answer, self.configs['answer_feedback']])
 
-    def get_message_from_thread(self):
-        pass
-
     async def process_message(self, **payload):
         data = payload['data']
         user = data.get('user', None)
@@ -81,6 +81,9 @@ class SlackChatBot(object):
         our response
         '''
         message = self.get_message_to_parse(data)
+        if '?' not in message.get('text', ''):
+            return
+
         answer = self.nlp_processor.get_prediction(message.get('text', None))
         if answer is None:
             '''
@@ -104,18 +107,7 @@ class SlackChatBot(object):
                 thread_ts=target_ts)
             self.logger.debug(f'response from posting reply={response}')
 
-            '''
-            For the time-being we will assume that for any response we will star
-            and check the parent thread.
-            '''
-            response = web_client.reactions_add(
-                channel=channel,
-                timestamp=target_ts,
-                name='star')
-            response = web_client.reactions_add(
-                channel=channel,
-                timestamp=target_ts,
-                name='heavy_check_mark')
+            self.react_to_thread(web_client, channel, target_ts)
         else:
             self.logger.debug(f"user= sent a message we ignored")
 
@@ -128,6 +120,38 @@ class SlackChatBot(object):
             return message_thread_ts
         return thread_ts
 
+    def react_to_thread(self, web_client, channel, thread_ts):
+        '''
+        Check to see if we have already reacted to this thread.
+        '''
+        response = web_client.reactions_get(
+            channel=channel,
+            timestamp=thread_ts)
+
+        message = response.data.get('message', None)
+        reactions = message.get('reactions', None)
+        if reactions is not None:
+            '''
+            Check to see if any of them are from the bot user, if so we will
+            assume that we have already reacted to this message and return.
+            '''
+            for reaction in reactions:
+                if self.bot_id in reaction.get('users'):
+                    return
+
+        '''
+        For the time-being we will assume that for any response we will star
+        and check the parent thread.
+        '''
+        response = web_client.reactions_add(
+            channel=channel,
+            timestamp=thread_ts,
+            name='star')
+        response = web_client.reactions_add(
+            channel=channel,
+            timestamp=thread_ts,
+            name='heavy_check_mark')
+
     async def run_loop(self):
         while self.running:
             self.logger.info(f'Checking running={self.running}, {datetime.now()}')
@@ -138,10 +162,9 @@ class SlackChatBot(object):
 
     async def api_test_loop(self):
         while self.running:
-            self.logger.info(f'api test {datetime.now()}')
             response = self.web_client.api_call('api.test')
             # Do something if this fails
-            self.logger.info(response)
+            self.logger.info(f'api test {datetime.now()}, status_code={response.status_code}')
             await asyncio.sleep(10)
 
     async def run(self):

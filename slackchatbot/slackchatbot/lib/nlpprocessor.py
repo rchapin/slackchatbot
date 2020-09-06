@@ -1,15 +1,17 @@
 import os
+import random
 import string
 import yaml
-from sklearn.utils import Bunch
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.naive_bayes import MultinomialNB
 from sklearn.linear_model import SGDClassifier
 
 class NlpProcessor(object):
 
-    def __init__(self, logger, configs):
-        self.logger = logger
+    def __init__(self, loggers, configs):
+        self.logger = loggers['logger']
+        self.stats_logger = loggers['stats_logger']
         self.configs = configs
         self.probability_threshold = self.configs['answer_probability_threshold']
         self.training_set_dir = self.configs['training_set_dir']
@@ -27,6 +29,7 @@ class NlpProcessor(object):
         x_train_tfidf = self.tfidf_transformer.fit_transform(x_train_counts)
 
         # FIXME: make all of the following knobs configs
+#         self.classifier = MultinomialNB().fit(x_train_tfidf, self.training_set_target)
         self.classifier = SGDClassifier(
             loss='modified_huber',
             penalty='l2',
@@ -47,9 +50,10 @@ class NlpProcessor(object):
                 predicted_probabilities[0],
                 self.probability_threshold)
             if probable_target is not None:
-                self.logger.info(f'probability={probability} for message={message}')
                 answer_key = self.training_set_target_names[probable_target]
                 retval = self.answers.get(answer_key, None)
+                prob_stats = {'probability': probability, 'answer_key': answer_key, 'message': message}
+                self.stats_logger.info(prob_stats)
 
         return retval
 
@@ -90,23 +94,24 @@ class NlpProcessor(object):
                         questions=input_entry['questions'],
                         answer=input_entry['answer'],
                         )
-        # Build the arrays to return in the Bunch
+
         answers = {}
         target_names = []
-        data = []
-        target = []
         idx = 0
+        data_tuples = []
         for category_name, category_data in training_data.items():
             target_names.append(category_name)
             answers[category_name] = category_data['answer']
+
             for question in category_data['questions']:
-                '''
-                Append to the data array and then append the idx value
-                to the corresponding target array.
-                '''
-                data.append(question)
-                target.append(idx)
+                data_tuples.append((idx, question))
             idx += 1
 
-#         training_set = Bunch(target_names=target_names, data=data, target=target)
+        random.shuffle(data_tuples)
+        data = []
+        target = []
+        for index, question in data_tuples:
+            data.append(question)
+            target.append(index)
+
         return data, target, target_names, answers

@@ -15,7 +15,7 @@ CLASSIFIERS = [
 
 setup(
     name='slackchatbot',
-    version='1.0.0.1',
+    version='1.0.0.2',
     description='A Slack Chat Bot',
     classifiers=CLASSIFIERS,
     author='Ryan Chapin',
