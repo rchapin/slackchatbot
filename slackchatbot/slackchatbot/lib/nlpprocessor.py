@@ -1,3 +1,4 @@
+import functools
 import os
 import random
 import string
@@ -5,6 +6,19 @@ import yaml
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.linear_model import SGDClassifier
+
+@functools.total_ordering
+class ProbabilityCandidate(object):
+
+    def __init__(self, target_id:int, probability:float):
+        self.target_id = target_id
+        self.probability = probability
+
+    def __lt__(self, other):
+        return 0
+
+    def __eq__(self, other) -> int:
+        return (self.target_id, self.probability) == (other)
 
 class NlpProcessor(object):
 
@@ -15,6 +29,7 @@ class NlpProcessor(object):
         self.probability_threshold = self.configs['answer_probability_threshold']
         self.training_set_dir = self.configs['training_set_dir']
         self.initialize_model()
+        self.logger.info(f'NlpProcessor initialized with probability_threshold={self.probability_threshold}')
 
     def initialize_model(self):
         self.training_set_data, self.training_set_target, self.training_set_target_names, self.answers = NlpProcessor.load_training_set(self.training_set_dir)

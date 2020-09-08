@@ -27,13 +27,6 @@ def parse_args():
         help='Fully qualified path to the config yaml file')
 
     parser.add_argument(
-        '--dryrun',
-        type=str,
-        required=False,
-        default=False,
-        help='Will just log questions and answers and not respond')
-
-    parser.add_argument(
         '--loglevel',
         type=str,
         default='INFO',
@@ -59,6 +52,7 @@ def main():
         )
 
     slackchatbot = SlackChatBot(loggers, args)
+    slackchatbot.init()
     asyncio.run(slackchatbot.run())
     logger.info('SlackReplyBot complete')
 
