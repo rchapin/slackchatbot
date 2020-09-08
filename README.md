@@ -15,9 +15,13 @@
 
     1. Enter a name and username for the bot.
 
-    1. Add the following additional OAuth Scopes
+    1. Click on ```Oauth & Permissions``` in the left-hand nav and the following additional OAuth Scopes.  Scroll down about 1/2 on the page until you see the ```Scopes``` section.  DO NOT click on ```Update Scopes```, click on the ```Add an OAuth Scope``` and add the following scopes:
 
-channels:history,groups:history,mpim:history,im:history,chat:write:bot
+        - channels:history
+        - groups:history
+        - mpim:history
+        - im:history
+        - chat:write:bot
 
     1. In the left-hand nav, click on ```OAuth & Permissions``` and then click on ```Install App to Workspace``` and then the ```Allow``` button on the next screen.
 

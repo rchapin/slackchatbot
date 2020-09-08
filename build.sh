@@ -6,21 +6,19 @@ NEXUS_PORT=8445
 set -u
 set -e
 
-VERSION=$1
+version=$1
+build=${2:-dev}
 START_DIR=`pwd`
 
-echo "Bumping version to $VERSION"
-
-#
-# Update the version in setup.py and the Dockerfile
-#
-docker_version="ENV VERSION $VERSION"
-docker_version_cmd="sed -i 's/ENV VERSION.*/ENV VERSION $VERSION/' Dockerfile"
-eval $docker_version_cmd
-
-setup_version="version='$VERSION',"
-setup_version_cmd="sed -i \"s/version=.*/$setup_version/\" slackchatbot/setup.py"
-eval $setup_version_cmd
+pypi_repo="pypi-${build}"
+docker_tag=$version
+if [ "$build" == "dev" ]
+then
+  docker_tag=$(git rev-parse HEAD)
+elif [ "$build" == "release" ]
+then
+  docker_tag=$version
+fi
 
 #
 # Build the python module and upload to nexus
@@ -28,15 +26,15 @@ eval $setup_version_cmd
 cd slackchatbot
 python setup.py clean
 python setup.py sdist
-twine upload --verbose --repository pypi-dev dist/slackchatbot-${VERSION}.tar.gz
+twine upload --verbose --repository $pypi_repo dist/slackchatbot-${version}.tar.gz
 
 #
 # Build and push the docker container
 #
 cd $START_DIR
-docker build --tag slackchatbot:${VERSION} .
-docker tag slackchatbot:${VERSION} $NEXUS_DOMAIN:$NEXUS_PORT/slackchatbot:${VERSION}
-docker push $NEXUS_DOMAIN:$NEXUS_PORT/slackchatbot:${VERSION}
+docker build --build-arg pypi_repo=$pypi_repo --build-arg version=$version \
+--tag slackchatbot:${docker_tag} .
+docker tag slackchatbot:${docker_tag} $NEXUS_DOMAIN:$NEXUS_PORT/slackchatbot:${docker_tag}
+docker push $NEXUS_DOMAIN:$NEXUS_PORT/slackchatbot:${docker_tag}
 
 cd $START_DIR
-

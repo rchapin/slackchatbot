@@ -1,0 +1,23 @@
+[Unit]
+Description=Slack Chat Bot Container %i
+After=docker.service
+Requires=docker.service
+
+[Service]
+User=slackchatbot
+Group=slackchatbot
+EnvironmentFile=/etc/slackchatbot/slackchatbot-%i
+TimeoutStartSec=0
+Restart=always
+ExecStartPre=-/usr/bin/docker stop slackchatbot-%i
+ExecStartPre=-/usr/bin/docker rm slackchatbot-%i
+ExecStart=/usr/bin/docker run --rm --name slackchatbot-%i -v slackchatbot-etc-%i:/etc/slackchatbot ${DOCKER_REPO_DOMAIN}:${DOCKER_REPO_PORT}/slackchatbot:${VERSION}
+ExecStop=/usr/bin/docker stop slackchatbot-%i
+Restart=always
+RestartSec=20s
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=slackchatbot-%i
+
+[Install]
+WantedBy=multi-user.target

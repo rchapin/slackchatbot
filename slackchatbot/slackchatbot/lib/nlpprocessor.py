@@ -27,6 +27,8 @@ class NlpProcessor(object):
         self.stats_logger = loggers['stats_logger']
         self.configs = configs
         self.probability_threshold = self.configs['answer_probability_threshold']
+        self.secondary_probably_process_threshold = self.configs['secondary_probably_process_threshold']
+
         self.training_set_dir = self.configs['training_set_dir']
         self.initialize_model()
         self.logger.info(f'NlpProcessor initialized with probability_threshold={self.probability_threshold}')
@@ -44,6 +46,16 @@ class NlpProcessor(object):
 
         self.classifier = SGDClassifier(loss='log')
         self.classifier.fit(x_train_tfidf, self.training_set_target)
+        self.seconsecondary_classifier = None
+        if self.configs['secondary_probability_enabled']:
+            self.secondary_classifier = SGDClassifier(
+                loss='hinge',
+                penalty='l2',
+                alpha=1e-3,
+                random_state=42,
+                max_iter=5,
+                tol=None)
+            self.secondary_classifier.fit(x_train_tfidf, self.training_set_target)
 
     def get_prediction(self, message:string):
         retval = None
@@ -52,13 +64,33 @@ class NlpProcessor(object):
         predicted_probabilities = self.classifier.predict_proba(x_new_tfidf)
 
         if predicted_probabilities is not None and len(predicted_probabilities) > 0:
-
             result = dict(zip(self.training_set_target_names, predicted_probabilities[0]))
             self.stats_logger.info(f'{result}, message={message}')
 
-            probable_target, probability = NlpProcessor.get_probable_target_id(
+            highest_probable_target, highest_probability = NlpProcessor.get_highest_probable_target_id(
                 predicted_probabilities[0],
                 self.probability_threshold)
+            probable_target = None
+            probability = None
+            if highest_probability >= self.probability_threshold:
+                '''
+                No need to process any further, we have a reasonable answer to
+                be returned.
+                '''
+                probable_target = highest_probable_target
+                probability = highest_probability
+            else:
+                '''
+                If we are above the secondary processing threshold we will make
+                the assumption that one of the currently trained classes is the
+                correct answer and will reprocess the intput.
+                '''
+                if highest_probability >= self.secondary_probably_process_threshold:
+                    self.logger.info(
+                        f'Running a secondary probability on highest_probability={highest_probability}')
+                    secondary_prediction = self.secondary_classifier.predict(x_new_tfidf)
+                    probable_target = secondary_prediction[0] if len(secondary_prediction) > 0 else None
+
             if probable_target is not None:
                 answer_key = self.training_set_target_names[probable_target]
                 retval = self.answers.get(answer_key, None)
@@ -68,16 +100,15 @@ class NlpProcessor(object):
         return retval
 
     @staticmethod
-    def get_probable_target_id(probabilities:[] , threshold:float) -> tuple:
+    def get_highest_probable_target_id(probabilities:[] , threshold:float) -> tuple:
         retval = None
         current_max = 0
         idx = -1
         for probability in probabilities:
             idx += 1
-            if probability >= threshold:
-                if probability > current_max:
-                    current_max = probability
-                    retval = idx
+            if probability > current_max:
+                current_max = probability
+                retval = idx
         return retval, current_max
 
     @staticmethod

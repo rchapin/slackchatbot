@@ -28,6 +28,7 @@ class SlackChatBot(object):
         self.configs = SlackChatBot.load_configs(self.args.configfile)
 
         self.probability_answers_enabled = self.configs.get('probability_answers_enabled', True)
+        self.secondary_probability_enabled = self.configs.get('secondary_probability_enabled', True)
         self.htr_answers_enabled = self.configs.get('htr_answers_enabled', True)
 
         '''
