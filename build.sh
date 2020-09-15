@@ -1,7 +1,9 @@
 #!/bin/bash
 
-NEXUS_DOMAIN=nexus.dmz-svcs.mootley.local
+export PYPI_HOST=nexus.dmz-svcs.mootley.local
+export PYPI_REPO_BASE=https://nexus.dmz-svcs.mootley.local:8443/repository/${pypi_repo}/simple
 NEXUS_PORT=8445
+
 
 set -u
 set -e
